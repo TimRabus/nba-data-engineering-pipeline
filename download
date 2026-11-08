@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+alle_spiele.json
+.ipynb_checkpoints/
+.DS_Store
