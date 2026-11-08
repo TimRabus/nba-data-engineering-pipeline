@@ -12,8 +12,7 @@ from dotenv import load_dotenv
 
 API_URL = "https://api.balldontlie.io/v1/games"
 OUTPUT_PATH = Path("alle_spiele.json")
-MAX_PAGES = 2  # Initial page plus one additional page, as in the original project.
-
+MAX_PAGES = 2 
 
 def fetch_games(api_key: str, max_pages: int = MAX_PAGES) -> list[dict]:
     if max_pages < 1:
