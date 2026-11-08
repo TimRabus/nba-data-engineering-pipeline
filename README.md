@@ -1,71 +1,94 @@
 # NBA Data Engineering Pipeline
 
-An independent learning project demonstrating data ingestion with Python and a three-layer data processing pipeline in Databricks using PySpark and Delta Lake.
+**Python | SQL | PySpark | Databricks | Delta Lake | Medallion Architecture**
 
-## Project overview
+An independent Data Engineering project demonstrating REST API ingestion, data transformation, quality validation and workflow orchestration using Python and Databricks.
 
-NBA game records are retrieved from the [balldontlie API](https://www.balldontlie.io/) using Python and saved as a local JSON file. The JSON file is **manually uploaded** to a Databricks Unity Catalog Volume. Databricks notebooks then process the data through Bronze, Silver, and Gold layers and create aggregated team statistics.
+The project implements a three-layer Medallion Architecture (Bronze, Silver and Gold) to process NBA game data and generate aggregated team statistics.
 
-> **Scope:** Portfolio / learning project, not a production system. The API ingestion runs locally; the transfer to Databricks is manual. The ingestion script defaults to a maximum of two API pages (up to 200 games). Actual results depend on the API response and subscription permissions.
+## 1. Project Overview
 
-## Architecture
+The objective of this project is to design and implement a structured data pipeline that transforms raw NBA game data into validated, analytics-ready datasets.
+
+NBA game records are retrieved from the [balldontlie API](https://www.balldontlie.io/) using a Python script developed in Visual Studio Code.
+
+The data is saved locally as JSON and manually uploaded to a Databricks Unity Catalog Volume. From there, PySpark notebooks process the data through Bronze, Silver and Gold layers.
+
+The Databricks processing stages are orchestrated through Databricks Jobs using Serverless Compute.
+
+**Project scope:** Independent learning and portfolio project, not a production deployment. API ingestion and Databricks processing are separate workflows connected through a manual file upload.
+
+## 2. Data Pipeline Architecture
 
 ```mermaid
 flowchart TD
-    A[balldontlie REST API] --> B[Python ingestion script]
-    B --> C[Local alle_spiele.json]
-    C -->|Manual upload| D[Databricks Unity Catalog Volume]
-    D --> E[Bronze: load JSON & validate IDs]
-    E --> F[Silver: select final games & valid scores]
-    F --> G[Gold: team-level score aggregates]
-    G --> H[SQL / PySpark analysis]
+    A[balldontlie REST API] --> B[Python API Ingestion]
+    B --> C[Local JSON File]
+    C -->|Manual Upload| D[Unity Catalog Volume]
+    D --> E[Bronze Layer]
+    E --> F[Silver Layer]
+    F --> G[Gold Layer]
+    G --> H[Team Statistics & SQL Analysis]
 ```
 
-## Technologies
+The architecture follows a layered approach to separate raw data ingestion, transformation and analytical aggregation.
 
-- **Python:** `requests`, `python-dotenv`, JSON file handling, cursor-based pagination
-- **Databricks / PySpark:** DataFrames, transformations, checks and managed tables
-- **Delta Lake:** Data storage and separate experiments with Time Travel / RESTORE
-- **SQL:** Delta version comparison and validation exercises
-- **Unity Catalog Volumes:** Source JSON storage
+## 3. Technologies & Tools
 
-## Repository structure
+| Technology | Application |
+|---|---|
+| Python | REST API requests, pagination, JSON processing and error handling |
+| SQL | Data validation, querying and Delta Lake version comparisons |
+| PySpark | DataFrame transformations, filtering and aggregations |
+| Databricks | Data processing, notebook execution and workflow orchestration |
+| Delta Lake | Managed data storage, table history, Time Travel and RESTORE exercises |
+| Unity Catalog | Structured data organization and Volume storage |
+| Databricks Jobs | Sequential task execution and dependency management |
+| GitHub | Version control and technical project documentation |
+
+## 4. Repository Structure
 
 ```text
 nba-data-engineering-pipeline/
+│
 ├── ingestion/
 │   └── nba_api_ingestion.py
+│
 ├── notebooks/
 │   ├── NBA_01_Bronze.py
 │   ├── NBA_02_Silver.py
 │   ├── NBA_03_Gold.py
 │   └── NBA_04_Delta_Time_Travel.py
+│
+├── docs/
+│   ├── gold_team_statistics.png
+│   ├── databricks_workflow.png
+│   └── databricks_job_run.png
+│
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
 └── README.md
 ```
 
-## Pipeline stages
+## 5. Pipeline Implementation
 
-| Stage | What it does | Data quality checks |
-| --- | --- | --- |
-| Ingestion | Request paginated NBA game data and write a JSON array | Response type and empty result checks |
-| Bronze | Load source JSON and write `nba.default.bronze_spiele` | Non-empty input, missing IDs, duplicate IDs, persisted row count |
-| Silver | Filter completed (`Final`) games; extract team names and scores | Non-empty result, non-null team names, positive scores |
-| Gold | Combine home and away results, aggregate games played and points per team | Non-empty output, non-null team names, nonzero game counts, two team appearances per Silver game, persisted row count |
+### 5.1 Data Ingestion – Python REST API
 
-The fourth notebook, `NBA_04_Delta_Time_Travel.py`, contains **separate learning exercises** for inspecting Delta history, comparing versions and restoring a test table. It is not an additional production stage in the scheduled pipeline. Historical version numbers in this notebook refer to the original workspace and may not exist in other workspaces.
+The ingestion script retrieves NBA game data from the balldontlie REST API.
 
-## Run the API ingestion locally
+Implemented features:
 
-1. Install Python and create a virtual environment if desired.
-2. Install dependencies: `pip install -r requirements.txt`.
-3. Copy `.env.example` to `.env` and add your own `NBA_API_KEY` value. Do **not** commit `.env`.
-4. Run `python ingestion/nba_api_ingestion.py` from the repository root.
-5. A local `alle_spiele.json` file will be created in the repository root. It is excluded via `.gitignore`.
+- API authentication using environment variables
+- HTTP requests using the Python `requests` library
+- Cursor-based pagination
+- HTTP error handling and request timeouts
+- JSON response validation
+- Local JSON file generation
 
-The script's local test output was:
+The ingestion script currently requests a maximum of two API pages, with up to 100 records per page.
+
+**Example execution output:**
 
 ```text
 Page 1: loaded 100 games
@@ -73,31 +96,161 @@ Page 2: loaded 100 games
 Saved 200 NBA games to alle_spiele.json
 ```
 
-This verifies the local API step ran successfully; it does not independently establish that the full Databricks pipeline was rerun with this exact file.
+The output confirms that the local ingestion script successfully retrieved and saved 200 NBA game records during testing.
 
-## Run the Databricks notebooks
+The resulting file is manually transferred to Databricks for further processing.
 
-1. Create or identify a Unity Catalog catalog/schema and a Volume for the JSON file.
-2. Upload `alle_spiele.json` manually to the Volume.
-3. Adjust `SOURCE_PATH` and table names at the top of the notebooks to your workspace. The current paths use `nba.default` and `/Volumes/nba/default/nba_data/alle_spiele.json`.
-4. Import the `.py` files as Databricks notebooks or add them to your workspace.
-5. Run `NBA_01_Bronze.py` → `NBA_02_Silver.py` → `NBA_03_Gold.py` in this order. The workflow was also orchestrated with Databricks Jobs in the original workspace; its job configuration is not included in this export.
+### 5.2 Bronze Layer – Raw Data Processing
 
-**Prerequisites:** A Databricks workspace with an appropriate Spark environment and permissions to read the Volume and create/replace tables. The notebook code relies on the Databricks-provided `spark` session and is **not** directly executable as ordinary local Python.
+**Notebook:** `NBA_01_Bronze.py`
 
-## Learning outcomes and limitations
+The Bronze layer reads raw NBA game records from a Unity Catalog Volume and stores them as a Delta table.
 
-- Demonstrates REST API extraction, pagination, JSON, layered transformations and data validation.
-- Demonstrates PySpark aggregations and Delta Lake inspection techniques.
-- Silver currently drops the source game ID, which limits row-level lineage. Retaining the ID would be a useful next improvement.
-- Bronze and Gold use `createOrReplace()` rather than incremental processing; reruns rebuild the corresponding tables.
-- No automated end-to-end integration from the local API script into the Databricks Volume is included.
-- The Delta Time Travel notebook is exploratory and expects versions and test tables that exist in the original workspace.
+Key operations:
 
-## Data source and security
+- Load source data from JSON
+- Validate that the dataset is not empty
+- Identify missing game IDs
+- Check for duplicate game IDs
+- Persist data in a managed Delta table
+- Verify the stored row count
 
-NBA game records are sourced from the balldontlie API. An API key is required. Credentials and downloaded JSON data are intentionally not included. Please consult the provider's terms before redistributing API datasets.
+**Output table:** `nba.default.bronze_spiele`
 
-## Author
+The Bronze layer establishes a structured foundation for subsequent transformations.
 
-[TimRabus](https://github.com/TimRabus) — personal Data Engineering learning portfolio.
+### 5.3 Silver Layer – Data Cleaning & Transformation
+
+**Notebook:** `NBA_02_Silver.py`
+
+The Silver layer transforms raw game records into a cleaner dataset suitable for further analytical processing.
+
+Key operations:
+
+- Filter games with a completed (`Final`) status
+- Extract home and visitor team names
+- Extract team scores
+- Remove records with missing team names
+- Filter records with invalid scores
+- Validate that the resulting dataset contains records
+
+The Silver layer focuses on improving data consistency and ensuring that only qualifying game records proceed to the Gold layer.
+
+**Current limitation:** The source game ID is not retained in the Silver output. Preserving this identifier would improve record-level traceability and facilitate additional validation.
+
+### 5.4 Gold Layer – Aggregated Team Statistics
+
+**Notebook:** `NBA_03_Gold.py`
+
+The Gold layer transforms completed NBA games into team-level statistics.
+
+Home and visitor team results are combined and aggregated using PySpark.
+
+Calculated metrics include:
+
+- Games played per team
+- Total points scored
+- Average points scored per game
+
+Additional validation checks verify:
+
+- Non-empty output
+- Non-null team names
+- Positive game counts
+- Consistency between completed games and team appearances
+- Persisted row count
+
+**Output table:** `nba.default.gold_teamstatistik`
+
+### Example Gold Layer Output
+
+The following screenshot shows aggregated team statistics generated in Databricks from a limited historical NBA game dataset.
+
+The results demonstrate how individual game records are transformed into a structured analytical table. They do not represent a complete current NBA season.
+
+![Gold Layer Team Statistics](docs/gold_team_statistics.png)
+
+## 6. Workflow Orchestration – Databricks Jobs
+
+The Bronze, Silver and Gold notebooks are orchestrated using Databricks Jobs with Serverless Compute.
+
+The workflow defines sequential execution dependencies:
+
+1. **Bronze:** Load and validate raw JSON data.
+2. **Silver:** Clean and transform completed game records.
+3. **Gold:** Generate and validate aggregated team statistics.
+
+Each subsequent task depends on the successful completion of the previous task.
+
+### Databricks Workflow Architecture
+
+![Databricks Workflow](docs/databricks_workflow.png)
+
+### Successful Pipeline Execution
+
+![Successful Databricks Job Run](docs/databricks_job_run.png)
+
+A documented workflow execution completed all three tasks successfully.
+
+| Task | Execution Duration |
+|---|---:|
+| Bronze | 51.5 seconds |
+| Silver | 15.4 seconds |
+| Gold | 15.4 seconds |
+| **Total task execution time** | **82.3 seconds** |
+
+This demonstrates task dependency management and successful execution of the three processing stages.
+
+The durations reflect one documented execution and do not represent a performance benchmark or guaranteed runtime.
+
+The Databricks Job configuration is maintained in the original workspace and is not included as an exported deployment configuration in this repository.
+
+## 7. Delta Lake – Time Travel & Version Management
+
+**Notebook:** `NBA_04_Delta_Time_Travel.py`
+
+A separate notebook contains practical exercises exploring Delta Lake version management.
+
+Implemented exercises include:
+
+- Inspecting Delta table history
+- Querying historical table versions
+- Comparing table versions using SQL
+- Identifying differences between historical datasets
+- Restoring a table to a previous version using `RESTORE`
+
+These exercises demonstrate an understanding of Delta Lake's versioning and recovery capabilities.
+
+They are separate from the scheduled Bronze–Silver–Gold processing workflow.
+
+The notebook references historical versions and test tables from the original Databricks workspace. Those versions may not be available in another environment.
+
+## 8. Data Quality & Validation
+
+Data quality checks are implemented throughout the pipeline.
+
+| Pipeline Stage | Validation |
+|---|---|
+| API Ingestion | Response validation and empty-result handling |
+| Bronze | Missing game IDs, duplicate game IDs, non-empty data and stored row count |
+| Silver | Completed games, valid team names, valid scores and non-empty output |
+| Gold | Team-name completeness, positive game counts, game-to-team consistency and stored row count |
+
+The objective is to identify potential data quality issues before they affect downstream analytical results.
+
+## 9. How to Run the Project
+
+### Step 1 – Set up the Python environment
+
+Install Python and the dependencies listed in `requirements.txt`.
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 2 – Configure API authentication
+
+Create a local `.env` file based on `.env.example`.
+
+```text
+NBA_API_KEY=your_api_key
