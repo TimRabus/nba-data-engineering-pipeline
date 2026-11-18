@@ -2,21 +2,38 @@
 # Imports und Konfiguration
 
 from pyspark.sql import functions as F
+import logging 
+
+logger = logging.getLogger("NBA_Silver")
+logger.setLevel(logging.INFO)
+
 
 # Tabellenbezeichnungen zentral definieren
 BRONZE_TABLE = "nba.default.bronze_spiele"
 SILVER_TABLE = "nba.default.silver_spiele"
 
 
+
 # COMMAND ----------
 
 # Bronze-Daten einlesen
+
+logger.info("Bronze: Datenverarbeitung gestartet")
+
 df_bronze = spark.read.table(BRONZE_TABLE)
 
+anzahl_spiele = df_bronze.count()
+
+logger.info(
+    "Bronze: %s Datensätze eingelesen",
+    anzahl_spiele
+)
+    
 
 # COMMAND ----------
 
 # Daten transformieren
+
 
 df_silver = (
     df_bronze
@@ -35,6 +52,13 @@ df_silver = (
     )
 )
 
+anzahl_spiele = df_silver.count()
+
+logger.info(
+        "Silver: %s Datensätze nach Transformation",
+        anzahl_spiele
+    )
+
 
 # COMMAND ----------
 
@@ -49,12 +73,12 @@ if anzahl_spiele == 0:
     )
 
 # Fehlende Teamnamen prüfen
-df_null_check = df_silver.filter(
+anzahl_null = (df_silver.filter(
     F.col("Heimteam").isNull() |
     F.col("Gastteam").isNull()
+    ).count()
 )
 
-anzahl_null = df_null_check.count()
 
 if anzahl_null > 0:
     raise ValueError(
@@ -62,11 +86,12 @@ if anzahl_null > 0:
         f"{anzahl_null} Spiele mit fehlenden Teamnamen."
     )
 
-print(
-    f"Datenqualitätsprüfung erfolgreich: "
-    f"{anzahl_spiele} Spiele, "
-    f"{anzahl_null} fehlende Teamnamen."
-)
+logger.info(
+    "Silver: Datenqualität erfolgreich geprüft | "
+    "Spiele=%s | Fehlende_Teamnamen=%s",
+    anzahl_spiele,
+    anzahl_null
+ )
 
 
 
@@ -76,14 +101,17 @@ print(
 # Daten speichern
  
 df_silver.writeTo(
-    "nba.default.silver_spiele"
+    SILVER_TABLE
 ).createOrReplace()
 
-df_kontrolle = spark.read.table("nba.default.silver_spiele")
+df_kontrolle = spark.read.table(SILVER_TABLE)
 
-df_kontrolle.show(5, truncate=False)
+anzahl_gespeichert = df_kontrolle.count()
 
-print("Gespeicherte Spiele: ", df_kontrolle.count())
+logger.info(
+    "Silver erfolgreich gespeichert: %s Spiele",
+    anzahl_gespeichert
+)
 
 # COMMAND ----------
 
