@@ -100,6 +100,10 @@ The output confirms that the local ingestion script successfully retrieved and s
 
 The resulting file is manually transferred to Databricks for further processing.
 
+**Dataset scope:** The API ingestion example above documents a separate test run that retrieved 200 records. The latest validated Databricks pipeline execution processed a JSON dataset containing 125 raw game records in Bronze. After filtering, 59 completed games remained in Silver, resulting in aggregated statistics for 11 teams in Gold.
+
+These figures represent the specific dataset used during the documented pipeline execution, not a complete NBA season.
+
 ### 5.2 Bronze Layer – Raw Data Processing
 
 **Notebook:** `NBA_01_Bronze.py`
@@ -130,7 +134,7 @@ Key operations:
 - Filter games with a completed (`Final`) status
 - Extract home and visitor team names
 - Extract team scores
-- Remove records with missing team names
+- Validate team names and fail the pipeline if NULL values are detected
 - Filter records with invalid scores
 - Validate that the resulting dataset contains records
 
@@ -181,6 +185,23 @@ The workflow defines sequential execution dependencies:
 3. **Gold:** Generate and validate aggregated team statistics.
 
 Each subsequent task depends on the successful completion of the previous task.
+
+### Retry Configuration & Failure Handling
+
+The Bronze task is configured with a maximum of one retry and a retry interval of 30 seconds.
+
+Failure handling was tested by intentionally raising a `RuntimeError` in the Bronze notebook before writing data.
+
+During the test:
+
+- The Bronze task failed on its initial attempt.
+- Databricks automatically retried the Bronze task once.
+- After the second failed attempt, the dependent Silver and Gold tasks were skipped.
+- After removing the simulated error, the complete Bronze–Silver–Gold workflow executed successfully.
+
+This test demonstrates basic retry configuration, task dependency management, and failure propagation within Databricks Jobs.
+
+The retry settings are configured in the Databricks workspace; an infrastructure-as-code or deployment configuration is not included in this repository.
 
 ### Databricks Workflow Architecture
 
@@ -237,6 +258,30 @@ Data quality checks are implemented throughout the pipeline.
 | Gold | Team-name completeness, positive game counts, game-to-team consistency and stored row count |
 
 The objective is to identify potential data quality issues before they affect downstream analytical results.
+
+### Logging & Execution Monitoring
+
+Python's built-in `logging` module is used across the Bronze, Silver and Gold notebooks to provide structured execution messages.
+
+Each processing stage logs:
+
+- The start of data processing
+- The definition of data transformations
+- Successful completion of data quality checks, including relevant record counts
+- Successful persistence of the processed data
+
+**Example Silver execution log:**
+
+```text
+INFO | Silver: Datenverarbeitung gestartet
+INFO | Silver: Transformation definiert
+INFO | Silver: Datenqualität erfolgreich geprüft | Spiele=59 | Fehlende_Teamnamen=0
+INFO | Silver: Erfolgreich gespeichert | Spiele=59
+```
+
+Data quality violations raise exceptions and cause the affected task to fail. Databricks Jobs provides task execution status and retry information.
+
+The implementation demonstrates basic execution logging and failure monitoring. It does not include a centralized logging platform or automated alerting system.
 
 ## 9. How to Run the Project
 
