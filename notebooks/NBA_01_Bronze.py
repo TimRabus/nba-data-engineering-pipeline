@@ -2,6 +2,10 @@
 # Import / JSON-Pfad
 
 from pyspark.sql import functions as F
+import logging
+
+logger = logging.getLogger("NBA_Bronze")
+logger.setLevel(logging.INFO)
 
 SOURCE_PATH = "/Volumes/nba/default/nba_data/alle_spiele.json"
 BRONZE_TABLE = "nba.default.bronze_spiele"
@@ -12,11 +16,30 @@ BRONZE_TABLE = "nba.default.bronze_spiele"
 
 # Daten einlesen
 
-df_bronze = (
-    spark.read
-    .option("multiLine", "true")
-    .json(SOURCE_PATH)
-)
+try:
+    logger.info("Bronze: Datenaufnahme gestartet")
+
+    df_bronze = (
+        spark.read
+        .option("multiLine", "true")
+        .json(SOURCE_PATH)
+    )
+
+    anzahl_spiele = df_bronze.count()
+
+    logger.info(
+            "Bronze: %s Datensätze eingelesen",
+            anzahl_spiele
+        )
+
+except Exception as e:
+    logger.error(
+        "Bronze: Datenaufnahme fehlgeschlagen: %s",
+        e
+    )
+    raise
+
+
   
 
 
@@ -69,12 +92,12 @@ if anzahl_duplikate > 0:
     )
 
 # 4. Erfolgsmeldung
-print(
-    f"Bronze-Validierung erfolgreich: "
-    f"{anzahl_spiele} Spiele, "
-    f"{anzahl_unterschiedlicher_ids} eindeutige IDs, "
-    f"{anzahl_fehlende_ids} fehlende IDs, "
-    f"{anzahl_duplikate} Duplikate."
+logger.info(
+    "Bronze: Datenqualität erfolgreich geprüft | "
+    "Spiele=%s | Fehlende_IDs=%s | Duplikate=%s",
+    anzahl_spiele,
+    anzahl_fehlende_ids,
+    anzahl_duplikate
 )
   
 
@@ -98,5 +121,8 @@ if anzahl_gespeichert != anzahl_spiele:
         f"gespeichert {anzahl_gespeichert}."
     )
 
-print(f"Bronze gespeichert: {anzahl_gespeichert} Spiele.")
+logger.info(
+    "Bronze erfolgreich gespeichert: %s Spiele",
+    anzahl_gespeichert
+)
   
