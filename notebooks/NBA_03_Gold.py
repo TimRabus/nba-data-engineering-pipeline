@@ -2,6 +2,10 @@
 # Imports und Konfiguration
 
 from pyspark.sql import functions as F
+import logging
+
+logger = logging.getLogger("NBA_Gold")
+logger.setLevel(logging.INFO)
 
 # Tabellenbezeichnungen
 
@@ -12,6 +16,8 @@ GOLD_TABLE = "nba.default.gold_teamstatistik"
 # COMMAND ----------
 
 # Daten einlesen
+
+logger.info("Gold: Datenverarbeitung gestartet")
 
 df_silver = spark.read.table(SILVER_TABLE)
 
@@ -47,6 +53,8 @@ df_gold = (
         F.avg("Punkte").alias("Durchschnittspunkte")
     )
 )
+
+logger.info("Gold: Transformation definiert")
 
 
 # COMMAND ----------
@@ -95,16 +103,19 @@ anzahl_gold_spiele = df_gold.agg(F.sum("Gesamtspiele")).first()[0]
 if anzahl_gold_spiele != 2 * anzahl_silver_spiele:
     raise ValueError(
         "Gold-Validierung fehlgeschlagen: "
-        f"Erwartet: {2 * anzahl_silver_spiele} Teamergebnisse in Gold, "
-        f"Tatsächlich: {anzahl_gold_spiele}.")
+        f"Erwartet: {anzahl_gold_spiele} Teamergebnisse in Gold, "
+        f"Tatsächlih: {2* anzahl_silver_spiele}.")
 
-print(
-    f"Gold-Validierung erfolgreich: "
-    f"{anzahl_teams} Teams, "
-    f"{anzahl_fehlende_teams} fehlende Teamnamen, "
-    f"{anzahl_teams_ohne_spiele} Teams ohne Spiele, "
-    f"{anzahl_silver_spiele} Spiele in Silver, "
-    f"{anzahl_gold_spiele} Teamergebnisse in Gold."
+logger.info(
+    "Gold: Datenqualität erfolgreich geprüft | "
+    "Teams=%s | Fehlende_Teams=%s | "
+    "Teams_ohne_Spiele=%s | "
+    "Silver_Spiele=%s | Gold_Teamergebnisse=%s",
+    anzahl_teams,
+    anzahl_fehlende_teams,
+    anzahl_teams_ohne_spiele,
+    anzahl_silver_spiele,
+    anzahl_gold_spiele
 )
 
 
@@ -127,4 +138,20 @@ if anzahl_gespeichert != anzahl_teams:
         f"gespeichert {anzahl_gespeichert}."
     )
 
-print(f"Gold erfolgreich gespeichert: {anzahl_gespeichert} Teams.")
+logger.info(f"Gold erfolgreich gespeichert: {anzahl_gespeichert} Teams.")
+
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC
+# MAGIC SELECT
+# MAGIC     Team,
+# MAGIC     Gesamtspiele,
+# MAGIC     Gesamtpunkte,
+# MAGIC     ROUND(Durchschnittspunkte, 2) AS Durchschnittspunkte
+# MAGIC FROM nba.default.gold_teamstatistik
+# MAGIC ORDER BY Gesamtpunkte DESC;
+
+# COMMAND ----------
+
