@@ -60,6 +60,11 @@ nba-data-engineering-pipeline/
 │   ├── NBA_03_Gold.py
 │   └── NBA_04_Delta_Time_Travel.py
 │
+├── nba_sdp_pipeline/
+│   ├── nba_pipeline.sql
+│   ├── NBA_SDP_Validation.ipynb
+│   └── README.md
+│
 ├── docs/
 │   ├── gold_team_statistics.png
 │   ├── databricks_workflow.png
@@ -283,19 +288,20 @@ Data quality violations raise exceptions and cause the affected task to fail. Da
 
 The implementation demonstrates basic execution logging and failure monitoring. It does not include a centralized logging platform or automated alerting system.
 
-## 9. How to Run the Project
+## 9. Additional Implementation: Spark Declarative Pipelines
 
-### Step 1 – Set up the Python environment
+In addition to the original PySpark-based Medallion Architecture, I implemented a second version using **Databricks Lakeflow Spark Declarative Pipelines (SDP)**.
 
-Install Python and the dependencies listed in `requirements.txt`.
+This implementation demonstrates:
 
-```bash
-pip install -r requirements.txt
-```
+- Incremental JSON ingestion using Auto Loader and Streaming Tables
+- Declarative data quality validation with SQL Expectations
+- Automatic dependency management between Bronze, Silver, and Gold
+- Analytical aggregations using a Gold Materialized View
+- SQL-based validation of data quality and transformation results
 
-### Step 2 – Configure API authentication
+**Validated results:** 125 Bronze records, 59 Silver records, and successfully generated Gold team statistics.
 
-Create a local `.env` file based on `.env.example`.
+The SDP version complements the original PySpark implementation and demonstrates two different approaches to building data pipelines in Databricks.
 
-```text
-NBA_API_KEY=your_api_key
+**[Explore the Spark Declarative Pipeline implementation](nba_sdp_pipeline/)**
